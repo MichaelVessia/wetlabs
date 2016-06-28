@@ -10,6 +10,7 @@ require 'csv'
 require 'fileutils'
 
 # Define lookup table for valid column names with some common changes
+# Add any desired changes here
 @header_hash = {
   'CHLa(Counts)' => 'RawCHL(cts)',
   'CHLa(ug/l)' => 'CHL(ug/l)',
@@ -19,6 +20,7 @@ require 'fileutils'
 }
 
 # Define lookup table for valid column positions
+# Changes here **should** change the output header+data appropriately
 @col_num_hash = {
   'Timestamp' => 0,
   'WQM' => 1,
@@ -42,14 +44,16 @@ require 'fileutils'
   'Volts' => 19
 }
 
-# List of WQM numbers
+# List of WQM numbers. Add any new WQMs here
 @wqms = [147, 148, 149, 150]
 
 # Prompt user for file name
-puts 'Please enter txt file name'
+puts 'Please enter a file name for the data. Example: data.txt'
 @file_name = gets.chomp
 
 # Rename headers, given a header row as input
+# Headers are renamed based upon the values in @header_hash
+# Add any inconsistencies there
 def rename_headers(header)
   header[0] = 'Timestamp'
   # For each current header, replace value with lookup table value if it exists
@@ -66,12 +70,16 @@ def rename_headers(header)
   header
 end
 
+# Add missing columns to csv header
+# Columns would be missing if a wqm does not record that data
+# e.g. 150 will have DO(ml/l) added
 def add_missing_cols(header)
   missing_columns = []
   @col_num_hash.keys.each do |col|
     missing_columns << col unless header.include?(col)
   end
 
+  # Insert missing column in appropriate position
   missing_columns.each do |miss|
     next if header.include?(miss)
     header.insert(@col_num_hash[miss], miss)
@@ -79,6 +87,7 @@ def add_missing_cols(header)
   header
 end
 
+# Call various functions for fixing the csv headers
 def fix_header_format(header)
   return @col_num_hash.keys if header.nil?
   header = header.map { |s| s.split(',') }.flatten
@@ -87,7 +96,8 @@ def fix_header_format(header)
   header
 end
 
-# Fix the data given the original header and the current row
+# Fix the data given the current row
+# Inserts NA's where the wqm had no data for that column
 def fix_data(data_row)
   return if data_row.nil?
 
@@ -106,12 +116,19 @@ def fix_data(data_row)
   data_row_arr.join(',')
 end
 
+# Accepts an array of filenames produced by fix_txt
+# Merges these temporary csv's into a single csv
+# The single csv will have appropriate headers
+# with NA anywhere there was no data
 def fix_csv(csv_filenames)
   # Read line from file, modify, and write back out
   first_line = true
   new_file_name = "#{@file_name[0...-3]}csv"
+  # Open final csv for output
   File.open(new_file_name, 'w') do |fo|
+    # Iterate over tmp csv files
     csv_filenames.each do |csv|
+      # Go through each line of tmp csv
       CSV.foreach(csv, headers: true) do |row|
         if first_line
           headers = fix_header_format(row.headers)
@@ -125,15 +142,27 @@ def fix_csv(csv_filenames)
   end
 end
 
+# Turns the original text file into n temporary csv files
+# where n is the number of WQMs that were logged in the txt
+# Returns an array of file names for fix_csv
+# Naively Runs through the entire file @wqms.length times
+# Additional information on data formatting needed,
+# could potentially reduce this to a single pass
 def fix_txt
   tmp_file_arr = []
+
+  # Pull the headers out of input file, store in array
   headers = extract_headers
 
+  # For each wqm number
   @wqms.each do |wqm|
+    # Open tmp csv for writing
     File.open("tmp_#{wqm}.csv", 'w') do |fo|
+      # Open input file for reading
       fi = File.open(@file_name, 'r')
       tmp_file_arr << "tmp_#{wqm}.csv"
       header_written = false
+      # For each line in input file
       fi.each_line do |line|
         line = line.scrub
         if line.include?("WQM,#{wqm}")
@@ -141,6 +170,7 @@ def fix_txt
           line.gsub!(/\"/, '')
           line.strip!
 
+          # If we haven't written the header yet, write it now
           unless header_written
             fo.puts headers.shift
             header_written = true
@@ -153,6 +183,9 @@ def fix_txt
   tmp_file_arr
 end
 
+# Makes a single linear pass through the txt file
+# Pulls out all of the headers and returns an array
+# Containing the unique headers
 def extract_headers
   header_set = []
   fi = File.open(@file_name, 'r')
@@ -168,6 +201,7 @@ def extract_headers
   header_set.uniq
 end
 
+# Remove temporary files that were used 
 def clean_up
   Dir.foreach(Dir.pwd) do |f|
     if !f.start_with?('tmp_') then next
@@ -178,4 +212,4 @@ def clean_up
 end
 
 fix_csv(fix_txt)
-#clean_up
+clean_up
