@@ -55,9 +55,11 @@ def rename_headers(header)
   # For each current header, replace value with lookup table value if it exists
   header.drop(1).each do |col|
     if @header_hash.key?(col)
-      header.delete(col)
+      old_col = col
       col = @header_hash[col]
-      header.insert(@col_num_hash[col], col)
+      header.insert(@col_num_hash[col], @header_hash[col])
+      header.delete(old_col)
+      header.compact!
     end
   end
 
@@ -98,7 +100,7 @@ def fix_data(data_row)
     next if key == 'Timestamp' # Special case
 
     unless orig_head_arr.include?(key) || orig_head_arr.include?(@header_hash.key(key))
-      data_row_arr.insert(@col_num_hash[key], 'N/A')
+      data_row_arr.insert(@col_num_hash[key], 'NA')
     end
   end
   data_row_arr.join(',')
@@ -176,4 +178,4 @@ def clean_up
 end
 
 fix_csv(fix_txt)
-clean_up
+#clean_up
