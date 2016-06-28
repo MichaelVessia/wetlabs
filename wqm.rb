@@ -51,8 +51,7 @@ puts 'Please enter txt file name'
 
 # Rename headers, given a header row as input
 def rename_headers(header)
-
-  header[0] = "Timestamp"
+  header[0] = 'Timestamp'
   # For each current header, replace value with lookup table value if it exists
   header.drop(1).each do |col|
     if @header_hash.key?(col)
@@ -66,12 +65,9 @@ def rename_headers(header)
 end
 
 def add_missing_cols(header)
-
   missing_columns = []
   @col_num_hash.keys.each do |col|
-    unless header.include?(col)
-      missing_columns << col
-    end
+    missing_columns << col unless header.include?(col)
   end
 
   missing_columns.each do |miss|
@@ -82,17 +78,15 @@ def add_missing_cols(header)
 end
 
 def fix_header_format(header)
-  return if @col_num_hash.keys if header.nil?
-  header = header.map{ |s| s.split(',') }.flatten
+  return @col_num_hash.keys if header.nil?
+  header = header.map { |s| s.split(',') }.flatten
   header = rename_headers(header)
   header = add_missing_cols(header)
   header
 end
 
-
 # Fix the data given the original header and the current row
 def fix_data(data_row)
-
   return if data_row.nil?
 
   # Coerce into arrays for manipulation
@@ -111,7 +105,6 @@ def fix_data(data_row)
 end
 
 def fix_csv(csv_filenames)
-
   # Read line from file, modify, and write back out
   first_line = true
   new_file_name = "#{@file_name[0...-3]}csv"
@@ -145,7 +138,7 @@ def fix_txt
           line.gsub!(/\\"/, '')
           line.gsub!(/\"/, '')
           line.strip!
-          #line.prepend('"') << '"'
+
           unless header_written
             fo.puts headers.shift
             header_written = true
@@ -162,12 +155,11 @@ def extract_headers
   header_set = []
   fi = File.open(@file_name, 'r')
   fi.each_line do |line|
-    if line.include?("Temp(C)")
-        line = line.scrub
-        line.gsub!(/\\"/, '')
-        line.gsub!(/\"/, '')
-        line.strip!
-        #line.prepend('"') << '"'
+    if line.include?('Temp(C)')
+      line = line.scrub
+      line.gsub!(/\\"/, '')
+      line.gsub!(/\"/, '')
+      line.strip!
       header_set << line
     end
   end
@@ -175,7 +167,6 @@ def extract_headers
 end
 
 def clean_up
-
   Dir.foreach(Dir.pwd) do |f|
     if !f.start_with?('tmp_') then next
     elsif File.directory?(f) then FileUtils.rm_rf(f)
