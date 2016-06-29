@@ -51,50 +51,8 @@ require 'fileutils'
 puts 'Please enter a file name for the data. Example: data.txt'
 @file_name = gets.chomp
 
-# Rename headers, given a header row as input
-# Headers are renamed based upon the values in @header_hash
-# Add any inconsistencies there
-def rename_headers(header)
-  header[0] = 'Timestamp'
-  # For each current header, replace value with lookup table value if it exists
-  header.drop(1).each do |col|
-    if @header_hash.key?(col)
-      old_col = col
-      col = @header_hash[col]
-      header.insert(@col_num_hash[col], @header_hash[col])
-      header.delete(old_col)
-      header.compact!
-    end
-  end
+@headers = {}
 
-  header
-end
-
-# Add missing columns to csv header
-# Columns would be missing if a wqm does not record that data
-# e.g. 150 will have DO(ml/l) added
-def add_missing_cols(header)
-  missing_columns = []
-  @col_num_hash.keys.each do |col|
-    missing_columns << col unless header.include?(col)
-  end
-
-  # Insert missing column in appropriate position
-  missing_columns.each do |miss|
-    next if header.include?(miss)
-    header.insert(@col_num_hash[miss], miss)
-  end
-  header
-end
-
-# Call various functions for fixing the csv headers
-def fix_header_format(header)
-  return @col_num_hash.keys if header.nil?
-  header = header.map { |s| s.split(',') }.flatten
-  header = rename_headers(header)
-  header = add_missing_cols(header)
-  header
-end
 
 # Fix the data given the current row
 # Inserts NA's where the wqm had no data for that column
@@ -102,9 +60,9 @@ def fix_data(data_row)
   return if data_row.nil?
 
   # Coerce into arrays for manipulation
-  orig_head_arr = data_row.headers
-  data_row_arr = data_row.fields
-
+  orig_head_arr = data_row.headers.compact
+  data_row_arr = data_row.fields.compact
+  
   # Insert N/A if original header did not contain key
   @col_num_hash.keys.each do |key|
     next if key == 'Timestamp' # Special case
@@ -113,6 +71,7 @@ def fix_data(data_row)
       data_row_arr.insert(@col_num_hash[key], 'NA')
     end
   end
+
   data_row_arr.join(',')
 end
 
@@ -131,7 +90,7 @@ def fix_csv(csv_filenames)
       # Go through each line of tmp csv
       CSV.foreach(csv, headers: true) do |row|
         if first_line
-          headers = fix_header_format(row.headers)
+          headers = @col_num_hash.keys
           fo.puts headers.join(',')
           first_line = false
         else
@@ -172,6 +131,7 @@ def fix_txt
 
           # If we haven't written the header yet, write it now
           unless header_written
+            @headers[wqm] = headers.first
             fo.puts headers.shift
             header_written = true
           end
@@ -191,17 +151,20 @@ def extract_headers
   fi = File.open(@file_name, 'r')
   fi.each_line do |line|
     if line.include?('Temp(C)')
+
       line = line.scrub
       line.gsub!(/\\"/, '')
       line.gsub!(/\"/, '')
       line.strip!
-      header_set << line
+      line = line.split(',')
+      line[0] = "Timestamp"
+      header_set << line.join(',')
     end
   end
   header_set.uniq
 end
 
-# Remove temporary files that were used 
+# Remove temporary files that were used
 def clean_up
   Dir.foreach(Dir.pwd) do |f|
     if !f.start_with?('tmp_') then next
